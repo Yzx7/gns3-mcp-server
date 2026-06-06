@@ -10,6 +10,7 @@ project management, device configuration, and simulation control.
 import asyncio
 import json
 import logging
+from html import escape as _xml_escape
 from typing import Any, Dict, List, Optional
 
 from fastmcp import FastMCP
@@ -1228,16 +1229,42 @@ async def gns3_add_text_annotation(
     server_url: str = "http://localhost:3080",
     username: Optional[str] = None,
     password: Optional[str] = None,
-    rotation: int = 0
+    rotation: int = 0,
+    color: str = "#000000",
+    font_size: int = 10
 ) -> Dict[str, Any]:
     """
     Add text annotation to the topology.
     Useful for documenting networks and adding labels.
+
+    Args:
+        color: Text fill color (hex format, e.g. "#ffffff" for light text on a
+            dark canvas).
+        font_size: Font size in points.
+        text: Annotation text. Newlines ("\\n") are rendered as separate lines.
     """
     try:
         client = create_client(server_url, username, password)
+        line_height = font_size + 2
+        lines = text.split("\n")
+        longest = max((len(line) for line in lines), default=1)
+        svg_width = max(int(longest * font_size * 0.65), font_size * 4)
+        svg_height = int(line_height * len(lines) + font_size * 0.5)
+        tspans = "".join(
+            f'<tspan x="0" '
+            f'{"y" if i == 0 else "dy"}="{font_size if i == 0 else line_height}">'
+            f'{_xml_escape(line, quote=False)}</tspan>'
+            for i, line in enumerate(lines)
+        )
+        svg = (
+            f'<svg width="{svg_width}" height="{svg_height}">'
+            f'<text font-family="TypeWriter" font-size="{font_size}.0" '
+            f'font-weight="bold" fill="{color}" fill-opacity="1.0" '
+            f'x="0" y="{font_size}">{tspans}</text>'
+            f'</svg>'
+        )
         drawing_data = {
-            "svg": f'<text font-family="TypeWriter" font-size="10" fill="#000000">{text}</text>',
+            "svg": svg,
             "x": x,
             "y": y,
             "rotation": rotation
@@ -1274,15 +1301,26 @@ async def gns3_add_shape(
     try:
         client = create_client(server_url, username, password)
         
+        fill = fill_color or "#ffffff"
+        fill_opacity = "1.0" if fill_color else "0.0"
         if shape_type == "rectangle":
-            svg = f'<rect width="{width}" height="{height}" stroke="{color}" fill="{fill_color or "none"}" />'
+            inner = (
+                f'<rect width="{width}" height="{height}" '
+                f'stroke="{color}" stroke-width="2" '
+                f'fill="{fill}" fill-opacity="{fill_opacity}" />'
+            )
         elif shape_type == "ellipse":
             rx = width // 2
             ry = height // 2
-            svg = f'<ellipse cx="{rx}" cy="{ry}" rx="{rx}" ry="{ry}" stroke="{color}" fill="{fill_color or "none"}" />'
+            inner = (
+                f'<ellipse cx="{rx}" cy="{ry}" rx="{rx}" ry="{ry}" '
+                f'stroke="{color}" stroke-width="2" '
+                f'fill="{fill}" fill-opacity="{fill_opacity}" />'
+            )
         else:
             return {"status": "error", "error": f"Unknown shape type: {shape_type}"}
-        
+
+        svg = f'<svg width="{width}" height="{height}">{inner}</svg>'
         drawing_data = {
             "svg": svg,
             "x": x,
