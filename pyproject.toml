@@ -6,7 +6,7 @@ authors = [
     {name = "GNS3 MCP Server Team", email = "gns3-mcp@github.com"}
 ]
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.10,<3.14"
 license = {text = "MIT"}
 keywords = ["gns3", "mcp", "network", "simulation", "automation", "ai", "cisco", "networking"]
 classifiers = [
